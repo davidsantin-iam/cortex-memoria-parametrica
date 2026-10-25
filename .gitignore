@@ -1,0 +1,17 @@
+# artefactos pesados o regenerables (no se publican: solo código y figuras)
+__pycache__/
+cache*/
+checkpoints/
+logs/
+data/
+results/eval_*.json
+results/sequential_*.json
+results/descartados/
+*.npz
+*.safetensors
+.DS_Store
+figures/
+results/
+comfy_image.py
+fig_pipeline.py
+null_test_out/
