@@ -50,8 +50,9 @@ partir del XML y de conjuntos públicos (MMMLU, GSM8K, Wikipedia).
 | 6 | `06_metrics.py` | Calcula CR y RR y dibuja las figuras. |
 | 7 | `07_sequential.py` | Consolidación secuencial con *query replay*. |
 | 8 | `08_outside_teacher.py` | Respuestas de un profesor externo filtradas contra el XML. |
+| 9 | `09_build_v5.py` | Ensayo v5: contextos con el articulado en lenguaje natural (`contexts`) y unión de varias rondas de ensayo propio filtradas contra el XML más preguntas de articulado por plantilla (`merge`). |
 
-`run_experiments.sh` encadena el experimento principal; `run_v2.sh`…`run_v4.sh`, las variantes
+`run_experiments.sh` encadena el experimento principal; `run_v2.sh`…`run_v5.sh`, las variantes
 del ensayo; `null_test.sh`, la prueba de estabilidad del optimizador (entrenar solo con ejemplos
 en los que profesor y alumno coinciden). Los scripts usan el intérprete de la variable `PY`
 (por defecto `python`).

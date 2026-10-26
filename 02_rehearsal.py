@@ -81,6 +81,8 @@ def main():
     ap.add_argument("--facets", action="store_true", help="una pregunta por faceta (6 por infracción)")
     ap.add_argument("--out", default="rehearsal.jsonl")
     ap.add_argument("--skip-generic", action="store_true")
+    ap.add_argument("--contexts", default="contexts.json")
+    ap.add_argument("--rid-prefix", default="E")
     args = ap.parse_args()
     if args.facets:
         args.k = 6
@@ -89,7 +91,7 @@ def main():
 
     model, tok = load_model()
     sanciones = {s["uid"]: s for s in read_jsonl(DATA / "sanciones.jsonl")}
-    contexts = json.loads((DATA / "contexts.json").read_text())
+    contexts = json.loads((DATA / args.contexts).read_text())
     if args.limit_contexts:
         contexts = contexts[: args.limit_contexts]
 
@@ -141,7 +143,7 @@ def main():
                 kept += 1
         print(f"  recuperadas {kept}/{len(retry)}")
     for i, r in enumerate(rehearsal):
-        r["rid"] = f"E{i:05d}"
+        r["rid"] = f"{args.rid_prefix}{i:05d}"
     write_jsonl(DATA / args.out, rehearsal)
     print(f"ejemplos de ensayo: {len(rehearsal)}")
     for r in random.sample(rehearsal, min(5, len(rehearsal))):

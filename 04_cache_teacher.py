@@ -50,6 +50,7 @@ def main():
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--rehearsal", default="rehearsal.jsonl")
     ap.add_argument("--cache-dir", default="cache")
+    ap.add_argument("--contexts", default="contexts.json")
     args = ap.parse_args()
     global CACHE
     CACHE = ROOT / args.cache_dir
@@ -58,7 +59,7 @@ def main():
     model, tok = load_model()
     fast_gdn.patch_mlx_lm(True)
     model.train()  # misma ruta numérica (chunked) que en entrenamiento; sin gradientes
-    contexts = {c["ctx_id"]: c["text"] for c in json.loads((DATA / "contexts.json").read_text())}
+    contexts = {c["ctx_id"]: c["text"] for c in json.loads((DATA / args.contexts).read_text())}
 
     jobs = []
     for r in read_jsonl(DATA / args.rehearsal):

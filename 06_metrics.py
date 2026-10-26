@@ -18,6 +18,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.patches import Rectangle  # noqa: E402
 
 from common import FIGURES, LOGS, RESULTS  # noqa: E402
 
@@ -32,21 +33,25 @@ TYPE_LABEL = {
 TARGET_TYPES = ["cuantia", "reduccion", "puntos", "gravedad", "precepto", "comparacion", "cuantia_para", "gravedad_para", "puntos_para"]
 
 # nombre de run -> (etiqueta, color, marcador)
+# color = ensayo con el que se entrena; marcador = plasticidad (círculo sináptica, cuadrado estructural, triángulo ablación)
 RUNS = {
     "synaptic_r16": ("Cortex-Sináptico (LoRA FFN, KL+MSE)", C["blue"], "o"),
-    "structural_k64": ("Cortex-Estructural (canales FFN, KL+MSE)", C["orange"], "s"),
-    "synaptic_kl": ("Sináptico solo KL (sin MSE)", C["aqua"], "^"),
-    "lora_all_ce": ("SFT clásico (LoRA-All, CE)", C["violet"], "D"),
-    "docs_ce": ("Fine-tune sobre documentos (CE)", C["magenta"], "v"),
-    "synaptic_ce": ("LoRA FFN con CE (sin profesor)", C["yellow"], "P"),
-    "synaptic_fullvocab": ("Primer intento: hiperparámetros literales del paper", C["red"], "X"),
-    "synaptic_fullvocab_lr1e-4": ("KL literal con la tasa de aprendizaje corregida", C["violet"], "x"),
-    "synaptic_v4": ("Sináptico, respuestas propias filtradas", C["magenta"], "o"),
-    "structural_v4": ("Estructural, respuestas propias filtradas", C["magenta"], "s"),
+    "structural_k64": ("Cortex-Estructural (canales FFN, KL+MSE)", C["blue"], "s"),
+    "synaptic_kl": ("Sináptico solo KL (sin MSE)", C["blue"], "^"),
+    "synaptic_v2": ("Sináptico, ensayo por facetas", C["aqua"], "o"),
+    "structural_v2": ("Estructural, ensayo por facetas", C["aqua"], "s"),
     "synaptic_v3": ("Sináptico, profesor externo 27B", C["green"], "o"),
     "structural_v3": ("Estructural, profesor externo 27B", C["green"], "s"),
-    "synaptic_v2": ("Sináptico, ensayo por facetas", C["aqua"], "o"),
-    "structural_v2": ("Estructural, ensayo por facetas", C["yellow"], "s"),
+    "synaptic_v4": ("Sináptico, respuestas propias filtradas", C["magenta"], "o"),
+    "structural_v4": ("Estructural, respuestas propias filtradas", C["magenta"], "s"),
+    "synaptic_v5": ("Sináptico, volumen propio filtrado + articulado", C["orange"], "o"),
+    "structural_v5": ("Estructural, volumen propio filtrado + articulado", C["orange"], "s"),
+    "synaptic_v5self": ("Sináptico, volumen propio filtrado, sin articulado", C["orange"], "^"),
+    "lora_all_ce": ("SFT clásico (LoRA-All, CE)", C["violet"], "D"),
+    "synaptic_ce": ("LoRA FFN con CE (sin profesor)", C["violet"], "P"),
+    "docs_ce": ("Fine-tune sobre documentos (CE)", C["yellow"], "v"),
+    "synaptic_fullvocab": ("Primer intento: hiperparámetros literales del paper", C["red"], "X"),
+    "synaptic_fullvocab_lr1e-4": ("KL literal con la tasa de aprendizaje corregida", C["red"], "x"),
 }
 
 
@@ -117,7 +122,7 @@ def fig_context_gap(runs: dict):
 
 def fig_pareto(runs: dict):
     """Dos paneles: CR frente a RR (benchmarks) y CR frente a perplejidad (deformación del lenguaje)."""
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5.2), dpi=160, gridspec_kw=dict(width_ratios=[1, 1]))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6.4), dpi=160, gridspec_kw=dict(width_ratios=[1, 1]))
     ax, ax2 = axes
     present = [n for n in RUNS if n in runs]
     for a in axes:
@@ -126,15 +131,46 @@ def fig_pareto(runs: dict):
     ax.axhline(100, color=C["grid"], linewidth=1)
     ax.scatter([0], [100], color=C["gray"], s=80, zorder=3, label="Modelo base (sin contexto)")
     ax.scatter([100], [100], color=C["ink"], marker="*", s=160, zorder=3, label="Modelo base + contexto (referencia)")
-    ax2.axhline(runs["vanilla"]["ppl_wiki_es"], color=C["grid"], linewidth=1)
-    ax2.scatter([0], [runs["vanilla"]["ppl_wiki_es"]], color=C["gray"], s=80, zorder=3)
+    base_ppl = runs["vanilla"]["ppl_wiki_es"]
+    ax2.axhline(base_ppl, color=C["grid"], linewidth=1)
+    ax2.scatter([0], [base_ppl], color=C["gray"], s=80, zorder=3)
+    # ampliaciones del grupo de puntos de Cortex, colocadas en la zona vacía de cada panel
+    zin = ax.inset_axes([0.45, 0.06, 0.53, 0.6])
+    zin2 = ax2.inset_axes([0.5, 0.2, 0.48, 0.52])
+    zin2.axhline(base_ppl, color=C["grid"], linewidth=1)
+    zin2.text(27.5, base_ppl + 0.015, "perplejidad base", fontsize=7, color=C["ink2"])
+    zoom_cr, zoom_rr, zoom_ppl = (26, 55), (95, 115), (base_ppl - 0.08, 9.7)
     for n in present:
         label, col, mk = RUNS[n]
         cr, rr = cr_rr(runs, n)
-        ax.scatter([100 * cr], [100 * rr], color=col, marker=mk, s=95, zorder=4, edgecolor="white", linewidth=1.2, label=label)
+        # "x" es un marcador de línea: sin borde blanco
+        kw = dict(color=col, marker=mk, zorder=4, linewidth=1.6) if mk == "x" else dict(color=col, marker=mk, zorder=4, edgecolor="white", linewidth=1.0)
+        ax.scatter([100 * cr], [100 * rr], s=95, label=label, **kw)
         ppl = runs[n].get("ppl_wiki_es", float("nan"))
-        ax2.scatter([100 * cr], [ppl], color=col, marker=mk, s=95, zorder=4, edgecolor="white", linewidth=1.2)
-        ax2.annotate(f"{ppl:.1f}", (100 * cr, ppl), textcoords="offset points", xytext=(7, 4), fontsize=7.5, color=C["ink2"])
+        ax2.scatter([100 * cr], [ppl], s=95, **kw)
+        if ppl > 11:  # solo los puntos aislados; los agrupados se ven en la ampliación
+            off = (8, -11) if 12.5 < ppl < 13.3 else (7, 4)  # separa 13,0 de 13,6
+            ax2.annotate(f"{ppl:.1f}", (100 * cr, ppl), textcoords="offset points", xytext=off, fontsize=7.5, color=C["ink2"])
+        if zoom_cr[0] <= 100 * cr <= zoom_cr[1]:
+            if zoom_rr[0] <= 100 * rr <= zoom_rr[1]:
+                zin.scatter([100 * cr], [100 * rr], s=70, **kw)
+            if zoom_ppl[0] <= ppl <= zoom_ppl[1]:
+                zin2.scatter([100 * cr], [ppl], s=70, **kw)
+    for z, ylim, a in ((zin, zoom_rr, ax), (zin2, zoom_ppl, ax2)):
+        z.set_xlim(*zoom_cr)
+        z.set_ylim(*ylim)
+        z.set_facecolor("white")
+        z.tick_params(colors=C["ink2"], labelsize=7)
+        z.grid(True, color=C["grid"], linewidth=0.6)
+        z.set_axisbelow(True)
+        for s in z.spines.values():
+            s.set_color(C["ink2"])
+            s.set_linewidth(0.8)
+        # solo el recuadro, sin líneas de conexión (cruzarían las etiquetas de los ejes)
+        a.add_patch(Rectangle((zoom_cr[0], ylim[0]), zoom_cr[1] - zoom_cr[0], ylim[1] - ylim[0], fill=False, edgecolor=C["ink2"], linewidth=0.9, zorder=2))
+    zin.axhline(100, color=C["grid"], linewidth=1)
+    zin.set_title("ampliación del recuadro", fontsize=7.5, color=C["ink2"], loc="left", pad=3)
+    zin2.set_title("ampliación del recuadro", fontsize=7.5, color=C["ink2"], loc="left", pad=3)
     ax.set_xlabel("Tasa de consolidación CR (%)", color=C["ink2"], fontsize=9)
     ax.set_ylabel("Tasa de retención RR (%)  [MMLU-es + GSM8K]", color=C["ink2"], fontsize=9)
     ax.set_title("Consolidación frente a retención", fontsize=11, color=C["ink"], loc="left")
@@ -144,19 +180,20 @@ def fig_pareto(runs: dict):
     ax2.set_ylabel("Perplejidad en Wikipedia-es (menor es mejor)", color=C["ink2"], fontsize=9)
     ax2.set_title("Consolidación frente a deformación del lenguaje", fontsize=11, color=C["ink"], loc="left")
     ax2.set_xlim(-8, 112)
-    ax2.text(2, runs["vanilla"]["ppl_wiki_es"] + 0.4, "perplejidad del modelo base", fontsize=7.5, color=C["ink2"])
+    ax2.set_ylim(8.4, 28)
+    ax2.text(2, runs["vanilla"]["ppl_wiki_es"] + 0.4, "perplejidad base", fontsize=7.5, color=C["ink2"])
     for a in axes:
         style(a)
         a.xaxis.grid(True, color=C["grid"], linewidth=0.8)
     handles, labels = ax.get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=3, frameon=False, fontsize=8, bbox_to_anchor=(0.5, -0.02))
-    fig.tight_layout(rect=(0, 0.12, 1, 1))
+    fig.legend(handles, labels, loc="lower center", ncol=3, frameon=False, fontsize=8, bbox_to_anchor=(0.5, 0.0))
+    fig.tight_layout(rect=(0, 0.21, 1, 1))
     fig.savefig(FIGURES / "fig2_pareto_cr_rr.png")
     plt.close(fig)
 
 
 def fig_per_type(runs: dict):
-    main = ["synaptic_r16", "synaptic_v2", "synaptic_v3", "synaptic_v4", "lora_all_ce"]
+    main = ["synaptic_r16", "synaptic_v2", "synaptic_v3", "synaptic_v4", "synaptic_v5", "lora_all_ce"]
     names = ["vanilla"] + [n for n in main if n in runs] + ["context"]
     labels = {"vanilla": "Modelo base", "context": "Base + contexto (referencia)", **{k: v[0].split(" (")[0] for k, v in RUNS.items()}}
     colors = {"vanilla": C["gray"], "context": C["ink"], **{k: v[1] for k, v in RUNS.items()}}
